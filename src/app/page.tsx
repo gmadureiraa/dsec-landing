@@ -1,65 +1,644 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
+
+const DAYS = [
+  {
+    num: "01",
+    title: "O motivo real pelo qual governos querem controlar seu dinheiro digital",
+    preview: "Inflação programada, vigilância financeira e o que o Plano Collor ensina sobre CBDCs.",
+    img: "/alfred/day1-regulation.jpg",
+  },
+  {
+    num: "02",
+    title: "O evento de 1971 que transformou seu salário em papel depreciável",
+    preview: "O que mudou quando Nixon tirou o dólar do ouro — e por que Bitcoin é a resposta.",
+    img: "/alfred/day2-money.jpg",
+  },
+  {
+    num: "03",
+    title: "Por que o Bitcoin que está na sua exchange não é seu",
+    preview: "Mt. Gox, FTX, Celsius — o padrão que se repete. E o método P2P que elimina o risco.",
+    img: "/alfred/day3-exchange.jpg",
+  },
+  {
+    num: "04",
+    title: "O ataque de US$ 284 milhões que começou com um telefonema",
+    preview: "Phishing, wrench attacks e engenharia social. Como criar um setup à prova de tudo.",
+    img: "/alfred/day4-security.jpg",
+  },
+  {
+    num: "05",
+    title: "O setup que cabe no bolso e não existe pra nenhum hacker do mundo",
+    preview: "Air-gapped, open-source, backup em metal. Passo a passo do seu cofre pessoal.",
+    img: "/alfred/day5-coldkit.jpg",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Já comprei na Binance com KYC. Ainda faz sentido pra mim?",
+    a: "Faz mais sentido ainda. Seus dados já existem num banco de dados. O curso ensina como a partir de agora suas próximas compras não criem mais registros — e como proteger o que você já tem.",
+  },
+  {
+    q: "É gratuito mesmo? Qual a pegadinha?",
+    a: "Nenhuma. A DSEC Labs fabrica hardware de segurança Bitcoin. Quanto mais gente entender self-custody, mais gente precisa de cofres bons. A educação é o marketing.",
+  },
+  {
+    q: "Vou precisar comprar algum equipamento?",
+    a: "Não. O curso ensina conceitos que funcionam com qualquer hardware wallet. Se depois quiser conhecer o ColdKit, vai ser uma escolha sua — não uma obrigação.",
+  },
+  {
+    q: "Tenho medo de perder acesso ao meu Bitcoin com self-custody.",
+    a: "Esse medo é normal e saudável. O dia 4 do curso é dedicado inteiramente a isso: como fazer backup à prova de incêndio, enchente e esquecimento. Ninguém perde Bitcoin por usar self-custody direito — perde por não usar.",
+  },
+  {
+    q: "Como sei que meu e-mail não vai ser vendido?",
+    a: "Somos uma empresa de segurança Bitcoin. Se vazássemos dados de clientes, não teríamos empresa. Privacidade é o nosso produto.",
+  },
+];
+
+function EmailForm({ variant = "default" }: { variant?: "default" | "compact" }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const rdFormRef = useRef<HTMLDivElement>(null);
+  const rdLoaded = useRef(false);
+  const router = useRouter();
+
+  // Load RD Station form hidden on mount
+  useEffect(() => {
+    if (rdLoaded.current) return;
+    rdLoaded.current = true;
+    const script = document.createElement("script");
+    script.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
+    script.onload = () => {
+      try {
+        // @ts-expect-error RDStationForms global
+        new window.RDStationForms("forms-captura-leads-x-c92b969c120bb9b7290a", "null").createForm();
+      } catch { /* already exists */ }
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setStatus("loading");
+
+    try {
+      // Wait for RD form to fully render
+      let rdForm: HTMLFormElement | null = null;
+      for (let i = 0; i < 10; i++) {
+        const container = document.getElementById("forms-captura-leads-x-c92b969c120bb9b7290a");
+        rdForm = container?.querySelector("form") || null;
+        if (rdForm) break;
+        await new Promise<void>((r) => setTimeout(r, 300));
+      }
+
+      console.log("[DSEC Form Debug] RD form found:", !!rdForm);
+      if (rdForm) {
+        console.log("[DSEC Form Debug] Action URL:", rdForm.action);
+        console.log("[DSEC Form Debug] Inputs:", rdForm.querySelectorAll("input").length);
+        // Fill ALL RD form fields by iterating inputs
+        const inputs = rdForm.querySelectorAll("input, select, textarea");
+        inputs.forEach((el) => {
+          if (!(el instanceof HTMLInputElement)) return;
+          const n = (el.name || el.id || el.getAttribute("data-field") || "").toLowerCase();
+          if (n.includes("email") || el.type === "email") {
+            setNativeValue(el, email);
+          } else if (n.includes("nome") || n.includes("name") || n.includes("first")) {
+            setNativeValue(el, name);
+          } else if (n.includes("tel") || n.includes("phone") || n.includes("celular") || n.includes("whatsapp") || el.type === "tel") {
+            setNativeValue(el, phone);
+          }
+        });
+
+        // Wait for RD to process the input events
+        await new Promise<void>((r) => setTimeout(r, 200));
+
+        // Submit via fetch using the form's action URL (avoids page redirect)
+        const actionUrl = rdForm.action || rdForm.getAttribute("action") || "";
+        if (actionUrl) {
+          const formData = new FormData(rdForm);
+          // Also submit via XMLHttpRequest as backup (some RD forms need it)
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", actionUrl, true);
+          xhr.send(formData);
+        }
+
+        // Also try clicking the submit button as ultimate fallback
+        // Use an iframe to prevent redirect
+        const iframe = document.createElement("iframe");
+        iframe.name = "rd-submit-frame";
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+        rdForm.target = "rd-submit-frame";
+        rdForm.submit();
+
+        // Clean up iframe after a delay
+        setTimeout(() => iframe.remove(), 5000);
+      }
+
+      // Wait for submission to process
+      await new Promise<void>((r) => setTimeout(r, 800));
+
+      // Redirect to our thank you page
+      router.push("/obrigado");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (variant === "compact") {
+    return (
+      <>
+        <form onSubmit={handleSubmit} className="flex gap-3 max-w-lg mx-auto flex-wrap sm:flex-nowrap">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Seu melhor e-mail"
+            required
+            disabled={status === "loading"}
+            className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="WhatsApp"
+            className="w-[140px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+          />
+          <button
+            type="submit"
+            disabled={status === "loading"}
+            className="px-6 py-3 bg-[var(--orange)] text-[var(--background)] font-semibold text-sm rounded-lg hover:brightness-110 transition-all shrink-0 disabled:opacity-70"
+          >
+            {status === "loading" ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
+                </svg>
+                Enviando...
+              </span>
+            ) : "Proteger meus Bitcoin"}
+          </button>
+        </form>
+        {/* Hidden RD Station form */}
+        <div ref={rdFormRef} id="forms-captura-leads-x-c92b969c120bb9b7290a" style={{ height: 0, overflow: "hidden", position: "absolute", left: 0, top: 0 }} aria-hidden="true" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Seu nome"
+          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Seu melhor e-mail"
+          required
+          disabled={status === "loading"}
+          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
+        />
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="WhatsApp (com DDD)"
+          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+        />
+        <button
+          type="submit"
+          disabled={status === "loading"}
+          className="w-full py-3.5 bg-[var(--orange)] text-[var(--background)] font-bold rounded-lg hover:brightness-110 hover:shadow-[0_0_20px_rgba(246,145,27,0.3)] transition-all disabled:opacity-70 relative overflow-hidden group"
+        >
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            {status === "loading" ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
+                </svg>
+                Garantindo sua vaga...
+              </>
+            ) : (
+              "Ver o que estao escondendo de mim"
+            )}
+          </span>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+        </button>
+        {status === "error" && (
+          <p className="text-xs text-red-400 text-center">Erro ao enviar. Tente novamente.</p>
+        )}
+        <p className="text-xs text-[var(--muted)] text-center">
+          1 email por dia, durante 5 dias. Sem spam. Sem pegadinha. Sem pedir CPF.
+        </p>
+      </form>
+      {/* Hidden RD Station form — receives data from our custom form */}
+      <div ref={rdFormRef} id="forms-captura-leads-x-c92b969c120bb9b7290a" style={{ height: 0, overflow: "hidden", position: "absolute", left: 0, top: 0 }} aria-hidden="true" />
+    </>
+  );
+}
+
+/** Helper to set value on a React-controlled input and trigger change event */
+function setNativeValue(input: HTMLInputElement, value: string) {
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype, "value"
+  )?.set;
+  if (nativeInputValueSetter) {
+    nativeInputValueSetter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className={`border-b border-[var(--border)] transition-colors ${open ? "border-[var(--orange)]/20" : ""}`}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-5 text-left group"
+      >
+        <span className="text-sm font-medium group-hover:text-[var(--orange)] transition-colors pr-4">
+          {q}
+        </span>
+        <span
+          className={`text-[var(--muted)] text-lg shrink-0 transition-transform duration-200 ${open ? "rotate-45" : ""}`}
+        >
+          +
+        </span>
+      </button>
+      <div
+        className={`overflow-hidden transition-all duration-300 ${open ? "max-h-48 pb-5" : "max-h-0"}`}
+      >
+        <p className="text-sm text-[var(--muted)] leading-relaxed">{a}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
+    <main>
+      {/* NAV */}
+      <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[var(--background)]/70 border-b border-[var(--border)]/50">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <Image
+            src="https://shop.dseclab.io/cdn/shop/files/Logo_DIYSEC_-_Rod_Lage_1684x.png?v=1752180244"
+            alt="DSEC Labs"
+            width={120}
+            height={32}
+            className="h-6 w-auto"
+            unoptimized
+          />
+          <a
+            href="#start"
+            className="text-xs font-medium text-[var(--orange)] hover:underline"
+          >
+            Quero o curso
+          </a>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="min-h-screen flex items-center pt-14 relative overflow-hidden" id="start">
+        {/* Deep space background with rotating galaxy */}
+        <div className="absolute inset-0 z-0" aria-hidden="true">
+          {/* Layer 1 — slow rotating star field (galaxy feel) */}
+          <div className="absolute inset-[-20%] animate-star-drift" style={{
+            backgroundImage: `radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 35% 10%, rgba(255,255,255,0.22) 50%, transparent 50%),
+              radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.12) 50%, transparent 50%),
+              radial-gradient(1px 1px at 55% 30%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 65% 75%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 75% 15%, rgba(255,255,255,0.18) 50%, transparent 50%),
+              radial-gradient(1px 1px at 85% 50%, rgba(255,255,255,0.12) 50%, transparent 50%),
+              radial-gradient(1px 1px at 20% 70%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 40% 85%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 60% 5%, rgba(255,255,255,0.22) 50%, transparent 50%),
+              radial-gradient(1px 1px at 80% 35%, rgba(255,255,255,0.18) 50%, transparent 50%),
+              radial-gradient(1px 1px at 10% 55%, rgba(255,255,255,0.12) 50%, transparent 50%),
+              radial-gradient(1px 1px at 50% 90%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 90% 65%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.1) 50%, transparent 50%),
+              radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.18) 50%, transparent 50%)`
+          }} />
+          {/* Layer 2 — counter-rotating brighter stars */}
+          <div className="absolute inset-[-10%] animate-star-drift-reverse animate-twinkle" style={{
+            backgroundImage: `radial-gradient(1.5px 1.5px at 12% 25%, rgba(255,255,255,0.3) 50%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 38% 15%, rgba(255,255,255,0.25) 50%, transparent 50%),
+              radial-gradient(2px 2px at 55% 42%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 72% 68%, rgba(255,255,255,0.3) 50%, transparent 50%),
+              radial-gradient(2px 2px at 88% 32%, rgba(255,255,255,0.25) 50%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 28% 78%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(2px 2px at 18% 50%, rgba(246,145,27,0.2) 50%, transparent 50%),
+              radial-gradient(2px 2px at 82% 75%, rgba(246,145,27,0.15) 50%, transparent 50%)`
+          }} />
+          {/* Static nebula glows */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_10%_40%,rgba(246,145,27,0.06)_0%,transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_25%,rgba(246,145,27,0.03)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_80%,rgba(168,21,128,0.02)_0%,transparent_50%)]" />
+          {/* Bottom fade */}
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--background)] to-transparent" />
+        </div>
+        <div className="max-w-5xl mx-auto px-6 py-24 md:py-32 relative z-10">
+          <div className="max-w-2xl mb-8">
+            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-6 animate-fade-up">
+              Curso gratuito · 5 dias · Direto no seu e-mail
+            </p>
+            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-4 animate-fade-up animate-delay-1">
+              Compre Bitcoin de forma{" "}
+              <span className="text-[var(--orange)]">100% privada</span>
+            </h1>
+            <p className="text-lg text-[var(--muted)] leading-relaxed max-w-lg animate-fade-up animate-delay-2">
+              Do zero ao setup completo de auto-custódia em 5 dias. Direto no seu e-mail. Sem KYC. Sem intermediários.
+            </p>
+          </div>
+          {/* Form + Alfred side by side */}
+          <div className="flex flex-col md:flex-row md:items-end gap-6 animate-fade-up animate-delay-3">
+            <div className="flex-1 max-w-sm">
+              <EmailForm />
+            </div>
+            <div className="hidden md:block shrink-0">
+              <div className="relative animate-float">
+                <Image
+                  src="/alfred/alfred-hero-privacy.png"
+                  alt="Alfred — seu guardião de privacidade"
+                  width={240}
+                  height={300}
+                  className="w-[240px] h-auto"
+                  unoptimized
+                  priority
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY JOIN — compelling reasons */}
+      <section className="py-20 md:py-28 border-t border-[var(--border)]/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(246,145,27,0.04)_0%,transparent_70%)]" />
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-14">
+            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--orange)] tracking-widest uppercase mb-4 animate-fade-up">
+              Por que entrar no mini curso
+            </p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight max-w-2xl mx-auto animate-fade-up animate-delay-1">
+              Porque o que você não sabe sobre seu Bitcoin{" "}
+              <span className="text-[var(--orange)]">pode custar tudo.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-12">
+            {[
+              {
+                icon: "01",
+                t: "Você vai entender o jogo que ninguém explica",
+                d: "Por que governos estão criando moedas digitais rastreáveis. Por que sua exchange sabe mais sobre você que o seu banco. E por que o sistema financeiro foi transformado em arma geopolítica.",
+              },
+              {
+                icon: "02",
+                t: "Vai aprender a comprar sem deixar rastro",
+                d: "Passo a passo real de como comprar Bitcoin via PIX sem enviar CPF, selfie ou qualquer documento. P2P direto, com escrow protegendo ambos os lados.",
+              },
+              {
+                icon: "03",
+                t: "Vai montar seu próprio cofre digital",
+                d: "Em 30 minutos, você configura um dispositivo air-gapped com firmware open-source, backup em metal e transações por QR code. Sem USB. Sem Bluetooth. Sem conexão com nada.",
+              },
+              {
+                icon: "04",
+                t: "Vai sair com um setup que funciona pra vida",
+                d: "Não é teoria. É o fluxo completo: compra privada → cold wallet → backup em metal → verificação. O mesmo sistema que protege milhões de dólares em Bitcoin no mundo real.",
+              },
+            ].map((item) => (
+              <div
+                key={item.t}
+                className="group p-6 rounded-xl border border-[var(--border)] bg-[var(--card)]/30 hover:border-[var(--orange)]/30 hover:bg-[var(--card)]/60 transition-all duration-300"
+              >
+                <div className="flex items-start gap-4">
+                  <span className="text-[var(--orange)] font-[family-name:var(--font-geist-mono)] text-sm font-bold shrink-0 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                  <div>
+                    <h3 className="text-[15px] font-semibold mb-2 group-hover:text-[var(--orange)] transition-colors">{item.t}</h3>
+                    <p className="text-sm text-[var(--muted)] leading-relaxed">{item.d}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-8 py-8 border-y border-[var(--border)]/30">
+            {[
+              { n: "100%", l: "Gratuito" },
+              { n: "5", l: "Dias de conteúdo" },
+              { n: "0", l: "Documentos pedidos" },
+              { n: "30 min", l: "Para montar o setup" },
+            ].map((s) => (
+              <div key={s.l} className="text-center px-4">
+                <p className="text-2xl font-bold text-[var(--orange)]">{s.n}</p>
+                <p className="text-xs text-[var(--muted)] mt-1">{s.l}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-10">
             <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              href="#start"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--orange)] text-[var(--background)] font-semibold rounded-lg hover:brightness-110 hover:shadow-[0_0_24px_rgba(246,145,27,0.25)] transition-all"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              Quero começar — é grátis
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* CURRICULUM */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_50%,rgba(246,145,27,0.03)_0%,transparent_60%)]" />
+        <div className="max-w-5xl mx-auto px-6 mb-12 relative z-10">
+          <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-4">
+            O que você vai receber
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            5 emails. 5 verdades que mudam como você{" "}
+            <span className="text-[var(--orange)]">protege seu dinheiro.</span>
+          </h2>
+          <p className="text-sm text-[var(--muted)] mt-3">
+            Arraste para explorar cada dia →
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        {/* Carousel */}
+        <div className="relative">
+          <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 px-6 md:px-[calc((100vw-64rem)/2+1.5rem)] no-scrollbar">
+            {DAYS.map((day) => (
+              <div
+                key={day.num}
+                className="group snap-start shrink-0 w-[300px] md:w-[340px] rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden hover:border-[var(--orange)]/40 transition-all"
+              >
+                {/* Card image */}
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <Image
+                    src={day.img}
+                    alt={`Dia ${day.num}`}
+                    width={340}
+                    height={255}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--card)] via-transparent to-transparent" />
+                  <span className="absolute top-4 left-4 text-[10px] font-[family-name:var(--font-geist-mono)] tracking-widest uppercase bg-[var(--background)]/80 backdrop-blur-sm text-[var(--orange)] px-3 py-1 rounded-full border border-[var(--orange)]/20">
+                    Dia {day.num}
+                  </span>
+                </div>
+
+                {/* Card content */}
+                <div className="p-5">
+                  <h3 className="text-[15px] font-semibold leading-snug mb-2">
+                    {day.title}
+                  </h3>
+                  <p className="text-xs text-[var(--muted)] leading-relaxed">
+                    {day.preview}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-6 mt-10 text-center">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#start"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--orange)] text-[var(--background)] font-semibold rounded-lg hover:brightness-110 transition-all"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+            Receber o dia 1 agora
           </a>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* WHY JOIN — after seeing what's in the course */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-4">
+              Por que isso importa agora
+            </p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight max-w-2xl mx-auto">
+              US$ 3,4 bilhões roubados em 2025.{" "}
+              <span className="text-[var(--orange)]">93% nunca foram recuperados.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                num: "270K",
+                color: "text-red-400",
+                t: "Clientes com dados vazados",
+                d: "Uma fabricante de hardware wallets expôs nome, endereço e patrimônio de 270 mil pessoas. Resultado: phishing, SIM swap, invasões domiciliares. O dado que vaza nunca volta.",
+              },
+              {
+                num: "$8B",
+                color: "text-red-400",
+                t: "Sumiram da FTX em 72 horas",
+                d: "Imóveis de US$ 300M nas Bahamas, doações políticas de US$ 100M, 400 investimentos de venture capital. Tudo com dinheiro dos clientes. O saldo na tela era mentira.",
+              },
+              {
+                num: "72",
+                color: "text-[var(--orange)]",
+                t: "Ataques físicos em 2026",
+                d: "Wrench attacks subiram 75% este ano. Sequestros, invasões, extorsão. Em quase todos os casos, os criminosos sabiam quanto a vítima tinha — dados de KYC vazados.",
+              },
+            ].map((item) => (
+              <div
+                key={item.t}
+                className="p-6 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 hover:border-[var(--orange)]/30 transition-all"
+              >
+                <p className={`text-3xl font-bold mb-3 ${item.color}`}>{item.num}</p>
+                <h3 className="text-[15px] font-semibold mb-2">{item.t}</h3>
+                <p className="text-sm text-[var(--muted)] leading-relaxed">{item.d}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-16 max-w-2xl mx-auto text-center">
+            <p className="text-[15px] text-[var(--muted)] leading-relaxed mb-10 max-w-lg mx-auto">
+              Este curso existe porque a DSEC Labs fabrica hardware de segurança Bitcoin. Quanto mais gente entender self-custody, mais gente precisa de cofres bons. <strong className="text-[var(--foreground)]">A educação é o marketing.</strong>
+            </p>
+            <EmailForm variant="compact" />
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50">
+        <div className="max-w-2xl mx-auto px-6">
+          <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-4">
+            Perguntas frequentes
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-10">
+            Antes de decidir
+          </h2>
+          <div>
+            {FAQS.map((faq) => (
+              <FaqItem key={faq.q} q={faq.q} a={faq.a} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-[var(--border)]/50 py-12">
+        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <Image
+            src="https://shop.dseclab.io/cdn/shop/files/Logo_DIYSEC_-_Rod_Lage_1684x.png?v=1752180244"
+            alt="DSEC Labs"
+            width={100}
+            height={28}
+            className="h-5 w-auto opacity-60"
+            unoptimized
+          />
+          <div className="flex gap-6">
+            {[
+              { label: "YouTube", href: "https://youtube.com/@dseclabs" },
+              { label: "Instagram", href: "https://instagram.com/dseclab.io" },
+              { label: "@alfredp2p", href: "https://x.com/alfredp2p" },
+              { label: "Discord", href: "https://discord.dseclab.io" },
+              { label: "Telegram", href: "https://t.me/alfredp2p" },
+            ].map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[var(--muted)] hover:text-[var(--orange)] transition-colors"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted)]">
+            © 2026 DSEC Labs. No Trust. Do It Yourself.
+          </p>
+        </div>
+      </footer>
+    </main>
   );
 }
