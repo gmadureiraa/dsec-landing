@@ -31,7 +31,7 @@ const DAYS = [
   {
     num: "05",
     title: "O setup que cabe no bolso e não existe pra nenhum hacker do mundo",
-    preview: "Air-gapped, open-source, backup em metal. Passo a passo do seu cofre pessoal.",
+    preview: "Air-gapped, open-source, backup em metal. E resiste a qualquer hacker do mundo.",
     img: "/alfred/day5-coldkit.jpg",
   },
 ];
