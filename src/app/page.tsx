@@ -227,7 +227,7 @@ export default function Home() {
           </div>
           <a
             href="#start"
-            className="text-xs font-medium text-[var(--orange)] hover:underline"
+            className="text-xs font-semibold bg-[var(--orange)] text-[var(--background)] px-4 py-2 rounded-lg hover:brightness-110 transition-all"
           >
             Quero o curso
           </a>
@@ -296,9 +296,9 @@ export default function Home() {
                 <Image
                   src="/alfred/alfred-hero-privacy.png"
                   alt="Alfred — seu guardião de privacidade"
-                  width={240}
-                  height={300}
-                  className="w-[240px] h-auto"
+                  width={160}
+                  height={200}
+                  className="w-[160px] h-auto"
                   unoptimized
                   priority
                 />
