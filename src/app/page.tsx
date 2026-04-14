@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 const DAYS = [
@@ -61,101 +60,67 @@ const FAQS = [
 ];
 
 function EmailForm({ variant = "default" }: { variant?: "default" | "compact" }) {
-  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const rdFormRef = useRef<HTMLDivElement>(null);
-  const rdLoaded = useRef(false);
-  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // Load RD Station form hidden on mount
-  useEffect(() => {
-    if (rdLoaded.current) return;
-    rdLoaded.current = true;
-    const script = document.createElement("script");
-    script.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
-    script.onload = () => {
-      try {
-        // @ts-expect-error RDStationForms global
-        new window.RDStationForms("forms-captura-leads-x-c92b969c120bb9b7290a", "null").createForm();
-      } catch { /* already exists */ }
-    };
-    document.body.appendChild(script);
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setStatus("loading");
 
-    try {
-      // Wait for RD form to fully render
-      let rdForm: HTMLFormElement | null = null;
-      for (let i = 0; i < 10; i++) {
-        const container = document.getElementById("forms-captura-leads-x-c92b969c120bb9b7290a");
-        rdForm = container?.querySelector("form") || null;
-        if (rdForm) break;
-        await new Promise<void>((r) => setTimeout(r, 300));
-      }
+    // Build a hidden form that posts to RD Station via iframe (no redirect)
+    const hiddenForm = document.createElement("form");
+    hiddenForm.method = "POST";
+    hiddenForm.action = "https://app.rdstation.com.br/api/1.2/conversions";
+    hiddenForm.target = "rd-iframe";
+    hiddenForm.style.display = "none";
 
-      console.log("[DSEC Form Debug] RD form found:", !!rdForm);
-      if (rdForm) {
-        console.log("[DSEC Form Debug] Action URL:", rdForm.action);
-        console.log("[DSEC Form Debug] Inputs:", rdForm.querySelectorAll("input").length);
-        // Fill ALL RD form fields by iterating inputs
-        const inputs = rdForm.querySelectorAll("input, select, textarea");
-        inputs.forEach((el) => {
-          if (!(el instanceof HTMLInputElement)) return;
-          const n = (el.name || el.id || el.getAttribute("data-field") || "").toLowerCase();
-          if (n.includes("email") || el.type === "email") {
-            setNativeValue(el, email);
-          } else if (n.includes("nome") || n.includes("name") || n.includes("first")) {
-            setNativeValue(el, name);
-          } else if (n.includes("tel") || n.includes("phone") || n.includes("celular") || n.includes("whatsapp") || el.type === "tel") {
-            setNativeValue(el, phone);
-          }
-        });
+    const fields: Record<string, string> = {
+      token_rdstation: "null",
+      identificador: "forms-captura-leads-x-c92b969c120bb9b7290a",
+      nome: name,
+      email: email,
+      celular: phone,
+      c_utmz: "",
+      traffic_source: document.referrer || "",
+    };
 
-        // Wait for RD to process the input events
-        await new Promise<void>((r) => setTimeout(r, 200));
+    Object.entries(fields).forEach(([key, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      hiddenForm.appendChild(input);
+    });
 
-        // Submit via fetch using the form's action URL (avoids page redirect)
-        const actionUrl = rdForm.action || rdForm.getAttribute("action") || "";
-        if (actionUrl) {
-          const formData = new FormData(rdForm);
-          // Also submit via XMLHttpRequest as backup (some RD forms need it)
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", actionUrl, true);
-          xhr.send(formData);
-        }
+    document.body.appendChild(hiddenForm);
+    hiddenForm.submit();
+    document.body.removeChild(hiddenForm);
 
-        // Also try clicking the submit button as ultimate fallback
-        // Use an iframe to prevent redirect
-        const iframe = document.createElement("iframe");
-        iframe.name = "rd-submit-frame";
-        iframe.style.display = "none";
-        document.body.appendChild(iframe);
-        rdForm.target = "rd-submit-frame";
-        rdForm.submit();
-
-        // Clean up iframe after a delay
-        setTimeout(() => iframe.remove(), 5000);
-      }
-
-      // Wait for submission to process
-      await new Promise<void>((r) => setTimeout(r, 800));
-
-      // Redirect to our thank you page
-      router.push("/obrigado");
-    } catch {
-      setStatus("error");
+    // Also load RD tracking script as backup
+    if (!document.querySelector('script[src*="rdstation-forms"]')) {
+      const s = document.createElement("script");
+      s.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
+      document.head.appendChild(s);
     }
+
+    // Redirect after short delay
+    setTimeout(() => {
+      window.location.href = "/obrigado";
+    }, 800);
   };
+
+  const inputClass = "w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all text-sm";
+  const buttonClass = "w-full py-3.5 bg-[var(--orange)] text-[var(--background)] font-bold rounded-lg hover:brightness-110 hover:shadow-[0_0_20px_rgba(246,145,27,0.3)] transition-all relative overflow-hidden group";
 
   if (variant === "compact") {
     return (
       <>
+        <iframe name="rd-iframe" ref={iframeRef} className="hidden" />
         <form onSubmit={handleSubmit} className="flex gap-3 max-w-lg mx-auto flex-wrap sm:flex-nowrap">
           <input
             type="email"
@@ -164,45 +129,37 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
             placeholder="Seu melhor e-mail"
             required
             disabled={status === "loading"}
-            className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
+            className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
           />
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="WhatsApp"
-            className="w-[140px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+            className="w-[140px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
           />
           <button
             type="submit"
             disabled={status === "loading"}
             className="px-6 py-3 bg-[var(--orange)] text-[var(--background)] font-semibold text-sm rounded-lg hover:brightness-110 transition-all shrink-0 disabled:opacity-70"
           >
-            {status === "loading" ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
-                </svg>
-                Enviando...
-              </span>
-            ) : "Proteger meus Bitcoin"}
+            {status === "loading" ? "Enviando..." : "Proteger meus Bitcoin"}
           </button>
         </form>
-        {/* Hidden RD Station form */}
-        <div ref={rdFormRef} id="forms-captura-leads-x-c92b969c120bb9b7290a" style={{ height: 0, overflow: "hidden", position: "absolute", left: 0, top: 0 }} aria-hidden="true" />
       </>
     );
   }
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
+      <iframe name="rd-iframe" ref={iframeRef} className="hidden" />
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-3 max-w-sm">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Seu nome"
-          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+          className={inputClass}
         />
         <input
           type="email"
@@ -211,20 +168,16 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
           placeholder="Seu melhor e-mail"
           required
           disabled={status === "loading"}
-          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
+          className={inputClass + " disabled:opacity-50"}
         />
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="WhatsApp (com DDD)"
-          className="w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
+          className={inputClass}
         />
-        <button
-          type="submit"
-          disabled={status === "loading"}
-          className="w-full py-3.5 bg-[var(--orange)] text-[var(--background)] font-bold rounded-lg hover:brightness-110 hover:shadow-[0_0_20px_rgba(246,145,27,0.3)] transition-all disabled:opacity-70 relative overflow-hidden group"
-        >
+        <button type="submit" disabled={status === "loading"} className={buttonClass + " disabled:opacity-70"}>
           <span className="relative z-10 flex items-center justify-center gap-2">
             {status === "loading" ? (
               <>
@@ -234,7 +187,7 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
                 Garantindo sua vaga...
               </>
             ) : (
-              "Ver o que estao escondendo de mim"
+              "Ver o que estão escondendo de mim"
             )}
           </span>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
@@ -246,22 +199,8 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
           1 email por dia, durante 5 dias. Sem spam. Sem pegadinha. Sem pedir CPF.
         </p>
       </form>
-      {/* Hidden RD Station form — receives data from our custom form */}
-      <div ref={rdFormRef} id="forms-captura-leads-x-c92b969c120bb9b7290a" style={{ height: 0, overflow: "hidden", position: "absolute", left: 0, top: 0 }} aria-hidden="true" />
     </>
   );
-}
-
-/** Helper to set value on a React-controlled input and trigger change event */
-function setNativeValue(input: HTMLInputElement, value: string) {
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype, "value"
-  )?.set;
-  if (nativeInputValueSetter) {
-    nativeInputValueSetter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-  }
 }
 
 function FaqItem({ q, a }: { q: string; a: string }) {

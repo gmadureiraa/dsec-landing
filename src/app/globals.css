@@ -127,6 +127,286 @@ html {
   animation: starDrift 400s linear infinite reverse;
 }
 
+/* ── RD Station Form — Full Override to Match D-Sec Design ── */
+
+/* Reset EVERYTHING RD injects */
+.rd-form-styled,
+.rd-form-styled *,
+.rd-form-styled *::before,
+.rd-form-styled *::after {
+  font-family: inherit !important;
+  box-sizing: border-box !important;
+  color-scheme: dark !important;
+}
+
+.rd-form-styled .bricks-form,
+.rd-form-styled form,
+.rd-form-styled > div,
+.rd-form-styled > div > div {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+}
+
+.rd-form-styled .bricks-form__fieldset,
+.rd-form-styled fieldset {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Kill the gray container wrapper RD adds */
+.rd-form-styled .bricks-form__wrapper,
+.rd-form-styled [class*="wrapper"],
+.rd-form-styled [class*="container"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Kill the phone country flag selector */
+.rd-form-styled .iti,
+.rd-form-styled .iti__flag-container,
+.rd-form-styled .iti__selected-flag,
+.rd-form-styled [class*="intl-tel"],
+.rd-form-styled [class*="flag"] {
+  background: transparent !important;
+  border: none !important;
+}
+
+.rd-form-styled .iti {
+  width: 100% !important;
+}
+
+.rd-form-styled .iti input {
+  padding-left: 52px !important;
+}
+
+/* Labels */
+.rd-form-styled .bricks-form__label,
+.rd-form-styled label {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* ALL inputs — aggressive override */
+.rd-form-styled .bricks-form__input,
+.rd-form-styled input:not([type="submit"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.rd-form-styled select,
+.rd-form-styled textarea {
+  background: var(--card) !important;
+  background-color: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  color: var(--foreground) !important;
+  padding: 14px 16px !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+  min-height: 48px !important;
+}
+
+/* Focus states */
+.rd-form-styled .bricks-form__input:focus,
+.rd-form-styled input:not([type="submit"]):focus,
+.rd-form-styled select:focus,
+.rd-form-styled textarea:focus {
+  border-color: var(--orange) !important;
+  box-shadow: 0 0 0 3px rgba(246, 145, 27, 0.12) !important;
+  outline: none !important;
+}
+
+/* Placeholders — force visible on dark bg */
+.rd-form-styled .bricks-form__input::placeholder,
+.rd-form-styled input::placeholder,
+.rd-form-styled textarea::placeholder {
+  color: #6b6b7b !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #6b6b7b !important;
+}
+
+/* Fix Chrome autofill dark bg */
+.rd-form-styled input:-webkit-autofill,
+.rd-form-styled input:-webkit-autofill:hover,
+.rd-form-styled input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #0c0c12 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+}
+
+/* Hide intl-tel-input flag selector completely */
+.rd-form-styled .iti__flag-container,
+.rd-form-styled .iti__selected-flag,
+.rd-form-styled .iti__country-list {
+  display: none !important;
+}
+
+.rd-form-styled .iti input,
+.rd-form-styled .iti input[type="tel"] {
+  padding-left: 16px !important;
+}
+
+/* Select dropdowns */
+.rd-form-styled select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6b7b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  padding-right: 40px !important;
+}
+
+/* Submit button — FORCE our orange CTA over RD's green */
+.rd-form-styled .bricks-form__submit,
+.rd-form-styled button[type="submit"],
+.rd-form-styled input[type="submit"],
+.rd-form-styled .bricks-form__submit.bricks-form__submit,
+.rd-form-styled [type="submit"],
+.rd-form-styled .bricks-form button,
+.rd-form-styled form button {
+  background: #f6911b !important;
+  background-color: #f6911b !important;
+  color: #050507 !important;
+  border: none !important;
+  border-color: transparent !important;
+  border-radius: 8px !important;
+  padding: 14px 24px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  width: 100% !important;
+  transition: all 0.2s ease !important;
+  margin-top: 8px !important;
+  letter-spacing: 0.01em !important;
+  min-height: 50px !important;
+  line-height: 1.2 !important;
+  text-transform: none !important;
+  -webkit-appearance: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+.rd-form-styled .bricks-form__submit:hover,
+.rd-form-styled button[type="submit"]:hover,
+.rd-form-styled input[type="submit"]:hover,
+.rd-form-styled form button:hover {
+  filter: brightness(1.1) !important;
+  box-shadow: 0 0 24px rgba(246, 145, 27, 0.3) !important;
+  transform: translateY(-1px) !important;
+  background: #f6911b !important;
+  background-color: #f6911b !important;
+}
+
+.rd-form-styled .bricks-form__submit:active,
+.rd-form-styled button[type="submit"]:active,
+.rd-form-styled input[type="submit"]:active {
+  transform: translateY(0) !important;
+}
+
+/* Field spacing */
+.rd-form-styled .bricks-form__field,
+.rd-form-styled .bricks-form__field-container {
+  margin-bottom: 14px !important;
+  padding: 0 !important;
+}
+
+/* Checkbox / radio overrides */
+.rd-form-styled input[type="checkbox"],
+.rd-form-styled input[type="radio"] {
+  accent-color: var(--orange) !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-height: auto !important;
+}
+
+.rd-form-styled .bricks-form__checkbox-label,
+.rd-form-styled .bricks-form__radio-label {
+  color: var(--muted) !important;
+  font-size: 13px !important;
+}
+
+/* Hide ALL RD branding, logos, footers, privacy text, powered-by */
+.rd-form-styled .bricks-form__footer,
+.rd-form-styled .bricks-form__footer *,
+.rd-form-styled .rdstation-popup-position,
+.rd-form-styled img[src*="rdstation"],
+.rd-form-styled img[src*="d335luupugsy2"],
+.rd-form-styled a[href*="rdstation"],
+.rd-form-styled .bricks-form__powered,
+.rd-form-styled [class*="powered"],
+.rd-form-styled [class*="footer"],
+.rd-form-styled [class*="privacy"],
+.rd-form-styled .bricks-form__gdpr,
+.rd-form-styled p:last-of-type {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+/* Success message */
+.rd-form-styled .bricks-form__success,
+.rd-form-styled [class*="success"] {
+  color: var(--orange) !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  padding: 20px 0 !important;
+  font-size: 15px !important;
+}
+
+/* Error styling */
+.rd-form-styled .bricks-form__error,
+.rd-form-styled .bricks-form__field--error .bricks-form__input,
+.rd-form-styled .bricks-form__field--error input {
+  border-color: #ef4444 !important;
+}
+
+.rd-form-styled .bricks-form__error-message,
+.rd-form-styled [class*="error-message"] {
+  color: #ef4444 !important;
+  font-size: 12px !important;
+  margin-top: 4px !important;
+}
+
+/* Remove any RD title/header inside form */
+.rd-form-styled .bricks-form__title,
+.rd-form-styled .bricks-form__description,
+.rd-form-styled h1, .rd-form-styled h2, .rd-form-styled h3 {
+  display: none !important;
+}
+
+/* Required asterisk */
+.rd-form-styled .bricks-form__required,
+.rd-form-styled [class*="required"] {
+  color: var(--orange) !important;
+}
+
 /* Hide scrollbar but keep scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
