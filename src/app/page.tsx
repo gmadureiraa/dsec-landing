@@ -31,7 +31,7 @@ const DAYS = [
   {
     num: "05",
     title: "O setup que cabe no bolso e resiste a qualquer hacker do mundo",
-    preview: "Air-gapped, open-source, backup em metal. E resiste a qualquer hacker do mundo.",
+    preview: "Air-gapped, open-source, backup em metal. Passo a passo do seu cofre pessoal.",
     img: "/alfred/day5-coldkit.jpg",
   },
 ];
@@ -278,10 +278,12 @@ export default function Home() {
         </div>
         <div className="max-w-5xl mx-auto px-6 py-24 md:py-32 relative z-10">
           <div className="max-w-2xl mb-8">
-            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-4 animate-fade-up">
-              Comprar Bitcoin é fácil.{" "}
-              <span className="text-[var(--orange)]">Difícil é fazer isso com privacidade e controle real.</span>
+            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-3 animate-fade-up">
+              Comprar Bitcoin é fácil.
             </h1>
+            <h2 className="text-xl md:text-2xl font-medium text-[var(--orange)] mb-4 animate-fade-up animate-delay-1">
+              Difícil é fazer isso com privacidade e controle real.
+            </h2>
             <p className="text-lg text-[var(--muted)] leading-relaxed max-w-lg animate-fade-up animate-delay-1">
               Do zero à privacidade absoluta com o melhor setup de autocustódia. Sem expor seus dados. 100% gratuito.
             </p>
