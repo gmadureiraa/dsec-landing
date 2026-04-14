@@ -62,7 +62,6 @@ const FAQS = [
 function EmailForm({ variant = "default" }: { variant?: "default" | "compact" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -84,7 +83,7 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
       identificador: "forms-captura-leads-x-c92b969c120bb9b7290a",
       nome: name,
       email: email,
-      celular: phone,
+      celular: "",
       c_utmz: "",
       traffic_source: document.referrer || "",
     };
@@ -131,13 +130,6 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
             disabled={status === "loading"}
             className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
           />
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="WhatsApp"
-            className="w-[140px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)]/50 focus:ring-1 focus:ring-[var(--orange)]/20 transition-all"
-          />
           <button
             type="submit"
             disabled={status === "loading"}
@@ -169,13 +161,6 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
           required
           disabled={status === "loading"}
           className={inputClass + " disabled:opacity-50"}
-        />
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="WhatsApp (com DDD)"
-          className={inputClass}
         />
         <button type="submit" disabled={status === "loading"} className={buttonClass + " disabled:opacity-70"}>
           <span className="relative z-10 flex items-center justify-center gap-2">
@@ -237,14 +222,9 @@ export default function Home() {
       {/* NAV */}
       <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[var(--background)]/70 border-b border-[var(--border)]/50">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Image
-            src="https://shop.dseclab.io/cdn/shop/files/Logo_DIYSEC_-_Rod_Lage_1684x.png?v=1752180244"
-            alt="DSEC Labs"
-            width={120}
-            height={32}
-            className="h-6 w-auto"
-            unoptimized
-          />
+          <div className="flex items-center gap-2">
+            <img src="/dsec-logo.png" alt="DSEC Labs" className="h-7 w-auto" />
+          </div>
           <a
             href="#start"
             className="text-xs font-medium text-[var(--orange)] hover:underline"
@@ -298,15 +278,12 @@ export default function Home() {
         </div>
         <div className="max-w-5xl mx-auto px-6 py-24 md:py-32 relative z-10">
           <div className="max-w-2xl mb-8">
-            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-6 animate-fade-up">
-              Curso gratuito · 5 dias · Direto no seu e-mail
-            </p>
-            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-4 animate-fade-up animate-delay-1">
-              Compre Bitcoin de forma{" "}
-              <span className="text-[var(--orange)]">100% privada</span>
+            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-4 animate-fade-up">
+              Comprar Bitcoin é fácil.{" "}
+              <span className="text-[var(--orange)]">Difícil é fazer isso com privacidade e controle real.</span>
             </h1>
-            <p className="text-lg text-[var(--muted)] leading-relaxed max-w-lg animate-fade-up animate-delay-2">
-              Do zero ao setup completo de auto-custódia em 5 dias. Direto no seu e-mail. Sem KYC. Sem intermediários.
+            <p className="text-lg text-[var(--muted)] leading-relaxed max-w-lg animate-fade-up animate-delay-1">
+              Do zero à privacidade absoluta com o melhor setup de autocustódia. Sem expor seus dados. 100% gratuito.
             </p>
           </div>
           {/* Form + Alfred side by side */}
@@ -546,14 +523,7 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="border-t border-[var(--border)]/50 py-12">
         <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <Image
-            src="https://shop.dseclab.io/cdn/shop/files/Logo_DIYSEC_-_Rod_Lage_1684x.png?v=1752180244"
-            alt="DSEC Labs"
-            width={100}
-            height={28}
-            className="h-5 w-auto opacity-60"
-            unoptimized
-          />
+          <img src="/dsec-logo.png" alt="DSEC Labs" className="h-6 w-auto opacity-60" />
           <div className="flex gap-6">
             {[
               { label: "YouTube", href: "https://youtube.com/@dseclabs" },
