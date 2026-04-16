@@ -1,0 +1,398 @@
+"use client";
+
+import { useState, useRef } from "react";
+import Image from "next/image";
+
+const DAYS = [
+  {
+    num: "01",
+    title: "O motivo real pelo qual governos querem controlar seu dinheiro digital",
+    preview: "Inflação programada, vigilância financeira e o que o Plano Collor ensina sobre CBDCs.",
+  },
+  {
+    num: "02",
+    title: "O evento de 1971 que transformou seu salário em papel depreciável",
+    preview: "O que mudou quando Nixon tirou o dólar do ouro — e por que Bitcoin é a resposta.",
+  },
+  {
+    num: "03",
+    title: "Por que o Bitcoin que está na sua exchange não é seu",
+    preview: "Mt. Gox, FTX, Celsius — o padrão que se repete. E o método P2P que elimina o risco.",
+  },
+  {
+    num: "04",
+    title: "O ataque de US$ 284 milhões que começou com um telefonema",
+    preview: "Phishing, wrench attacks e engenharia social. Como criar um setup à prova de tudo.",
+  },
+  {
+    num: "05",
+    title: "O setup que cabe no bolso e resiste a qualquer hacker do mundo",
+    preview: "Air-gapped, open-source, backup em metal. Passo a passo do seu cofre pessoal.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Já comprei na Binance com KYC. Ainda faz sentido pra mim?",
+    a: "Faz mais sentido ainda. Seus dados já existem num banco de dados. O curso ensina como a partir de agora suas próximas compras não criem mais registros — e como proteger o que você já tem.",
+  },
+  {
+    q: "É gratuito mesmo? Qual a pegadinha?",
+    a: "Nenhuma. A DSEC Labs fabrica hardware de segurança Bitcoin. Quanto mais gente entender self-custody, mais gente precisa de cofres bons. A educação é o marketing.",
+  },
+  {
+    q: "Vou precisar comprar algum equipamento?",
+    a: "Não. O curso ensina conceitos que funcionam com qualquer hardware wallet. Se depois quiser conhecer o ColdKit, vai ser uma escolha sua — não uma obrigação.",
+  },
+  {
+    q: "Tenho medo de perder acesso ao meu Bitcoin com self-custody.",
+    a: "Esse medo é normal e saudável. O dia 4 do curso é dedicado inteiramente a isso: como fazer backup à prova de incêndio, enchente e esquecimento.",
+  },
+  {
+    q: "Como sei que meu e-mail não vai ser vendido?",
+    a: "Somos uma empresa de segurança Bitcoin. Se vazássemos dados de clientes, não teríamos empresa. Privacidade é o nosso produto.",
+  },
+];
+
+function EmailForm({ variant = "default" }: { variant?: "default" | "compact" }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setStatus("loading");
+
+    const hiddenForm = document.createElement("form");
+    hiddenForm.method = "POST";
+    hiddenForm.action = "https://app.rdstation.com.br/api/1.2/conversions";
+    hiddenForm.target = "rd-iframe-v2";
+    hiddenForm.style.display = "none";
+
+    const fields: Record<string, string> = {
+      token_rdstation: "null",
+      identificador: "forms-captura-leads-x-c92b969c120bb9b7290a",
+      nome: name,
+      email: email,
+      celular: "",
+      c_utmz: "",
+      traffic_source: document.referrer || "",
+    };
+
+    Object.entries(fields).forEach(([key, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      hiddenForm.appendChild(input);
+    });
+
+    document.body.appendChild(hiddenForm);
+    hiddenForm.submit();
+    document.body.removeChild(hiddenForm);
+
+    setTimeout(() => {
+      window.location.href = "/obrigado";
+    }, 800);
+  };
+
+  const inputClass =
+    "w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all text-sm";
+  const buttonClass =
+    "w-full py-3.5 bg-[var(--orange)] text-[var(--background)] font-bold rounded-lg hover:brightness-110 hover:shadow-[0_0_20px_rgba(246,145,27,0.3)] transition-all relative overflow-hidden group";
+
+  if (variant === "compact") {
+    return (
+      <>
+        <iframe name="rd-iframe-v2" ref={iframeRef} className="hidden" />
+        <form onSubmit={handleSubmit} className="flex gap-3 max-w-lg mx-auto flex-wrap sm:flex-nowrap">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Seu melhor e-mail"
+            required
+            disabled={status === "loading"}
+            className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] transition-all disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={status === "loading"}
+            className="px-6 py-3 bg-[var(--orange)] text-[var(--background)] font-semibold text-sm rounded-lg hover:brightness-110 transition-all shrink-0 disabled:opacity-70"
+          >
+            {status === "loading" ? "Enviando..." : "Começar agora"}
+          </button>
+        </form>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <iframe name="rd-iframe-v2" ref={iframeRef} className="hidden" />
+      <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className={inputClass} />
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu melhor e-mail" required disabled={status === "loading"} className={inputClass + " disabled:opacity-50"} />
+        <button type="submit" disabled={status === "loading"} className={buttonClass + " disabled:opacity-70"}>
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            {status === "loading" ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
+                </svg>
+                Garantindo sua vaga...
+              </>
+            ) : (
+              "Quero comprar Bitcoin com privacidade"
+            )}
+          </span>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+        </button>
+        {status === "error" && <p className="text-xs text-red-400 text-center">Erro ao enviar. Tente novamente.</p>}
+        <p className="text-xs text-[var(--muted)] text-center">1 email por dia, durante 5 dias. Sem spam. Sem pedir CPF.</p>
+      </form>
+    </>
+  );
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`border-b border-[var(--border)] transition-colors ${open ? "border-[var(--orange)]/20" : ""}`}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between py-5 text-left group">
+        <span className="text-sm font-medium group-hover:text-[var(--orange)] transition-colors pr-4">{q}</span>
+        <span className={`text-[var(--muted)] text-lg shrink-0 transition-transform duration-200 ${open ? "rotate-45" : ""}`}>+</span>
+      </button>
+      <div className={`overflow-hidden transition-all duration-300 ${open ? "max-h-48 pb-5" : "max-h-0"}`}>
+        <p className="text-sm text-[var(--muted)] leading-relaxed">{a}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function V2() {
+  return (
+    <main>
+      {/* NAV */}
+      <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[var(--background)]/70 border-b border-[var(--border)]/50">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <img src="/dsec-logo.png" alt="DSEC Labs" className="h-7 w-auto" />
+          <a href="#start" className="text-xs font-semibold bg-[var(--orange)] text-[var(--background)] px-4 py-2 rounded-lg hover:brightness-110 transition-all">
+            Mini curso grátis
+          </a>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="min-h-screen flex items-center pt-14 relative overflow-hidden" id="start">
+        {/* Starfield */}
+        <div className="absolute inset-0 z-0" aria-hidden="true">
+          <div className="absolute inset-[-20%] animate-star-drift" style={{
+            backgroundImage: `radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 35% 10%, rgba(255,255,255,0.22) 50%, transparent 50%),
+              radial-gradient(1px 1px at 55% 30%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 75% 15%, rgba(255,255,255,0.18) 50%, transparent 50%),
+              radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.12) 50%, transparent 50%),
+              radial-gradient(1px 1px at 65% 75%, rgba(255,255,255,0.15) 50%, transparent 50%),
+              radial-gradient(1px 1px at 85% 50%, rgba(255,255,255,0.12) 50%, transparent 50%),
+              radial-gradient(1px 1px at 20% 70%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1px 1px at 60% 5%, rgba(255,255,255,0.22) 50%, transparent 50%),
+              radial-gradient(1px 1px at 80% 35%, rgba(255,255,255,0.18) 50%, transparent 50%),
+              radial-gradient(1px 1px at 50% 90%, rgba(255,255,255,0.2) 50%, transparent 50%)`
+          }} />
+          <div className="absolute inset-[-10%] animate-star-drift-reverse animate-twinkle" style={{
+            backgroundImage: `radial-gradient(1.5px 1.5px at 12% 25%, rgba(255,255,255,0.3) 50%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 38% 15%, rgba(255,255,255,0.25) 50%, transparent 50%),
+              radial-gradient(2px 2px at 55% 42%, rgba(255,255,255,0.2) 50%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 72% 68%, rgba(255,255,255,0.3) 50%, transparent 50%),
+              radial-gradient(2px 2px at 18% 50%, rgba(246,145,27,0.2) 50%, transparent 50%),
+              radial-gradient(2px 2px at 82% 75%, rgba(246,145,27,0.15) 50%, transparent 50%)`
+          }} />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_10%_40%,rgba(246,145,27,0.06)_0%,transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_25%,rgba(246,145,27,0.03)_0%,transparent_50%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--background)] to-transparent" />
+        </div>
+
+        <div className="max-w-5xl mx-auto px-6 py-24 md:py-32 relative z-10">
+          <div className="max-w-2xl mb-8">
+            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-6 animate-fade-up">
+              Mini curso gratuito · 5 dias · 0 documentos pedidos
+            </p>
+            <h1 className="text-4xl md:text-[3.5rem] font-bold tracking-tight leading-[1.08] mb-3 animate-fade-up animate-delay-1">
+              Compre Bitcoin de forma{" "}
+              <span className="text-[var(--orange)]">100% privada.</span>
+            </h1>
+            <p className="text-lg text-[var(--muted)] leading-relaxed max-w-lg animate-fade-up animate-delay-2">
+              Aprenda do zero ao setup completo de auto-custódia em 5 dias. Sem KYC. Sem intermediários. Sem expor seus dados. Direto no seu e-mail.
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-end gap-6 animate-fade-up animate-delay-3">
+            <div className="flex-1 max-w-sm">
+              <EmailForm />
+            </div>
+            <div className="hidden md:block shrink-0">
+              <div className="relative animate-float">
+                <Image
+                  src="/alfred/alfred-hero-privacy.png"
+                  alt="Alfred — seu guardião de privacidade"
+                  width={160}
+                  height={200}
+                  className="w-[160px] h-auto"
+                  unoptimized
+                  priority
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* O QUE VOCÊ VAI APRENDER */}
+      <section className="py-20 md:py-28 border-t border-[var(--border)]/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(246,145,27,0.04)_0%,transparent_70%)]" />
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-14">
+            <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--orange)] tracking-widest uppercase mb-4">
+              O que você vai aprender
+            </p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight max-w-2xl mx-auto">
+              Do zero ao cofre pessoal que{" "}
+              <span className="text-[var(--orange)]">ninguém rastreia.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-12">
+            {[
+              { icon: "01", t: "Comprar sem deixar rastro", d: "Passo a passo de como comprar Bitcoin via PIX sem enviar CPF, selfie ou qualquer documento. P2P direto, com escrow protegendo ambos os lados." },
+              { icon: "02", t: "Entender o jogo que ninguém explica", d: "Por que governos criam moedas digitais rastreáveis. Por que sua exchange sabe mais sobre você que seu banco. E por que o sistema financeiro virou arma." },
+              { icon: "03", t: "Montar seu próprio cofre digital", d: "Em 30 minutos: dispositivo air-gapped, firmware open-source, backup em metal, transações por QR code. Sem USB. Sem Bluetooth." },
+              { icon: "04", t: "Sair com um setup que funciona pra vida", d: "Fluxo completo: compra privada → cold wallet → backup em metal → verificação. O mesmo sistema que protege milhões em Bitcoin no mundo real." },
+            ].map((item) => (
+              <div key={item.t} className="group p-6 rounded-xl border border-[var(--border)] bg-[var(--card)]/30 hover:border-[var(--orange)]/30 hover:bg-[var(--card)]/60 transition-all duration-300">
+                <div className="flex items-start gap-4">
+                  <span className="text-[var(--orange)] font-[family-name:var(--font-geist-mono)] text-sm font-bold shrink-0 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                  <div>
+                    <h3 className="text-[15px] font-semibold mb-2 group-hover:text-[var(--orange)] transition-colors">{item.t}</h3>
+                    <p className="text-sm text-[var(--muted)] leading-relaxed">{item.d}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-8 py-8 border-y border-[var(--border)]/30">
+            {[
+              { n: "100%", l: "Gratuito" },
+              { n: "5", l: "Dias de conteúdo" },
+              { n: "0", l: "Documentos pedidos" },
+              { n: "30 min", l: "Para montar o setup" },
+            ].map((s) => (
+              <div key={s.l} className="text-center px-4">
+                <p className="text-2xl font-bold text-[var(--orange)]">{s.n}</p>
+                <p className="text-xs text-[var(--muted)] mt-1">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CURRICULUM — 5 DIAS */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50">
+        <div className="max-w-5xl mx-auto px-6 mb-12">
+          <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-4">O que você vai receber</p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            5 emails. 5 verdades que mudam como você{" "}
+            <span className="text-[var(--orange)]">protege seu dinheiro.</span>
+          </h2>
+        </div>
+        <div className="max-w-5xl mx-auto px-6 grid gap-4">
+          {DAYS.map((day) => (
+            <div key={day.num} className="group flex items-start gap-4 p-5 rounded-xl border border-[var(--border)] bg-[var(--card)]/30 hover:border-[var(--orange)]/30 transition-all">
+              <span className="text-[10px] font-[family-name:var(--font-geist-mono)] tracking-widest uppercase text-[var(--orange)] bg-[var(--orange)]/10 px-3 py-1.5 rounded-full shrink-0 mt-0.5">
+                Dia {day.num}
+              </span>
+              <div>
+                <h3 className="text-[15px] font-semibold mb-1 group-hover:text-[var(--orange)] transition-colors">{day.title}</h3>
+                <p className="text-sm text-[var(--muted)] leading-relaxed">{day.preview}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="max-w-5xl mx-auto px-6 mt-10 text-center">
+          <a href="#start" className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--orange)] text-[var(--background)] font-semibold rounded-lg hover:brightness-110 transition-all">
+            Receber o dia 1 agora
+          </a>
+        </div>
+      </section>
+
+      {/* URGÊNCIA */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight max-w-2xl mx-auto">
+              US$ 3,4 bilhões roubados em 2025.{" "}
+              <span className="text-[var(--orange)]">93% nunca foram recuperados.</span>
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { num: "270K", color: "text-red-400", t: "Clientes com dados vazados", d: "Uma fabricante de hardware wallets expôs nome, endereço e patrimônio de 270 mil pessoas. Phishing, SIM swap, invasões domiciliares." },
+              { num: "$8B", color: "text-red-400", t: "Sumiram da FTX em 72h", d: "Imóveis de $300M, doações políticas de $100M. Tudo com dinheiro dos clientes. O saldo na tela era mentira." },
+              { num: "72", color: "text-[var(--orange)]", t: "Ataques físicos em 2026", d: "Wrench attacks subiram 75% este ano. Em quase todos os casos, criminosos sabiam quanto a vítima tinha — dados de KYC vazados." },
+            ].map((item) => (
+              <div key={item.t} className="p-6 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 hover:border-[var(--orange)]/30 transition-all">
+                <p className={`text-3xl font-bold mb-3 ${item.color}`}>{item.num}</p>
+                <h3 className="text-[15px] font-semibold mb-2">{item.t}</h3>
+                <p className="text-sm text-[var(--muted)] leading-relaxed">{item.d}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-16 max-w-2xl mx-auto text-center">
+            <p className="text-[15px] text-[var(--muted)] leading-relaxed mb-10 max-w-lg mx-auto">
+              Este curso existe porque a DSEC Labs fabrica hardware de segurança Bitcoin. Quanto mais gente entender self-custody, mais gente precisa de cofres bons. <strong className="text-[var(--foreground)]">A educação é o marketing.</strong>
+            </p>
+            <EmailForm variant="compact" />
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-24 md:py-32 border-t border-[var(--border)]/50">
+        <div className="max-w-2xl mx-auto px-6">
+          <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted)] tracking-widest uppercase mb-4">Perguntas frequentes</p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-10">Antes de decidir</h2>
+          <div>
+            {FAQS.map((faq) => (
+              <FaqItem key={faq.q} q={faq.q} a={faq.a} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-[var(--border)]/50 py-12">
+        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <img src="/dsec-logo.png" alt="DSEC Labs" className="h-6 w-auto opacity-60" />
+          <div className="flex gap-6">
+            {[
+              { label: "YouTube", href: "https://youtube.com/@dseclabs" },
+              { label: "Instagram", href: "https://instagram.com/dseclab.io" },
+              { label: "@alfredp2p", href: "https://x.com/alfredp2p" },
+              { label: "Discord", href: "https://discord.dseclab.io" },
+              { label: "Telegram", href: "https://t.me/alfredp2p" },
+            ].map((link) => (
+              <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--muted)] hover:text-[var(--orange)] transition-colors">
+                {link.label}
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted)]">© 2026 DSEC Labs. No Trust. Do It Yourself.</p>
+        </div>
+      </footer>
+    </main>
+  );
+}
