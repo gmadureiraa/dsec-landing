@@ -107,11 +107,11 @@ export default function ObrigadoPage() {
           </p>
           <div className="space-y-3">
             {[
-              { day: "Dia 1", title: "Por que governos querem controlar seu dinheiro digital" },
-              { day: "Dia 2", title: "O evento de 1971 que depreciou seu salário" },
-              { day: "Dia 3", title: "Por que o Bitcoin na exchange não é seu" },
-              { day: "Dia 4", title: "O ataque de US$ 284M que começou com um telefonema" },
-              { day: "Dia 5", title: "O setup que nenhum hacker do mundo alcança" },
+              { day: "Dia 1", title: "Por que privacidade financeira importa" },
+              { day: "Dia 2", title: "O risco real das exchanges — do Plano Collor à FTX" },
+              { day: "Dia 3", title: "Como comprar Bitcoin sem expor seus dados" },
+              { day: "Dia 4", title: "Self-custody — configure sua cold wallet em 30 min" },
+              { day: "Dia 5", title: "O fluxo completo — soberania Bitcoin em 5 passos" },
             ].map((item) => (
               <div key={item.day} className="flex gap-3 items-start">
                 <span className="text-xs font-mono text-[var(--orange)] bg-[var(--orange)]/10 px-2 py-0.5 rounded shrink-0">

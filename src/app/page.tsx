@@ -6,32 +6,32 @@ import Image from "next/image";
 const DAYS = [
   {
     num: "01",
-    title: "O motivo real pelo qual governos querem controlar seu dinheiro digital",
-    preview: "Inflação programada, vigilância financeira e o que o Plano Collor ensina sobre CBDCs.",
+    title: "Por que privacidade financeira importa",
+    preview: "Vigilância financeira, CBDCs e por que ninguém deveria saber exatamente quanto você tem em Bitcoin.",
     img: "/alfred/day1-regulation.jpg",
   },
   {
     num: "02",
-    title: "O evento de 1971 que transformou seu salário em papel depreciável",
-    preview: "O que mudou quando Nixon tirou o dólar do ouro — e por que Bitcoin é a resposta.",
+    title: "O risco real das exchanges",
+    preview: "Do Plano Collor à queda do padrão ouro — o padrão histórico de confisco que se repete em Mt. Gox, FTX e Celsius.",
     img: "/alfred/day2-money.jpg",
   },
   {
     num: "03",
-    title: "Por que o Bitcoin que está na sua exchange não é seu",
-    preview: "Mt. Gox, FTX, Celsius — o padrão que se repete. E o método P2P que elimina o risco.",
+    title: "Como comprar Bitcoin sem expor seus dados",
+    preview: "O método P2P direto, sem selfie, sem documento, sem deixar rastro ligando sua identidade às suas moedas.",
     img: "/alfred/day3-exchange.jpg",
   },
   {
     num: "04",
-    title: "O ataque de US$ 284 milhões que começou com um telefonema",
-    preview: "Phishing, wrench attacks e engenharia social. Como criar um setup à prova de tudo.",
+    title: "Self-custody — configure sua cold wallet em 30 min",
+    preview: "Passo a passo prático, air-gapped, backup em metal. Seu cofre pessoal saindo hoje.",
     img: "/alfred/day4-security.jpg",
   },
   {
     num: "05",
-    title: "O setup que cabe no bolso e resiste a qualquer hacker do mundo",
-    preview: "Air-gapped, open-source, backup em metal. Passo a passo do seu cofre pessoal.",
+    title: "O fluxo completo — soberania Bitcoin em 5 passos",
+    preview: "Compra privada → cold wallet → backup → verificação → uso real. O sistema fechado do começo ao fim.",
     img: "/alfred/day5-coldkit.jpg",
   },
 ];
