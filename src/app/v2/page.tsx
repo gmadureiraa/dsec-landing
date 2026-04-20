@@ -122,21 +122,33 @@ async function submitViaRD(values: {
   setNativeValue(emailInput, values.email, "email");
   if (values.phone) setNativeValue(phoneInput, values.phone, "phone");
   if (values.name) setNativeValue(nameInput, values.name, "name");
-  const submitBtn = rdForm.querySelector<HTMLButtonElement>(
-    'button[type="submit"], input[type="submit"]',
+
+  const action = rdForm.action || "https://cta-redirect.rdstation.com/v2/conversions";
+  const formData = new FormData(rdForm);
+  formData.set("email", values.email);
+  if (values.phone) formData.set("mobile_phone", values.phone);
+  if (values.name) formData.set("name", values.name);
+
+  log(
+    "SUBMIT 5. disparando fetch POST pro RD em:",
+    action,
+    "campos:",
+    Array.from(formData.keys()),
   );
-  log("SUBMIT 5. botão submit encontrado?", !!submitBtn);
-  if (submitBtn) {
-    log("SUBMIT 6. clicando no botão submit");
-    submitBtn.click();
-  } else if (typeof rdForm.requestSubmit === "function") {
-    log("SUBMIT 6. requestSubmit()");
-    rdForm.requestSubmit();
-  } else {
-    log("SUBMIT 6. fallback form.submit()");
-    rdForm.submit();
+  try {
+    const resp = await fetch(action, {
+      method: "POST",
+      body: formData,
+      mode: "no-cors",
+      credentials: "omit",
+      keepalive: true,
+    });
+    log("SUBMIT 6. fetch OK — status:", resp.status, "type:", resp.type);
+  } catch (err) {
+    console.error("[RD] SUBMIT 6. ❌ fetch throw:", err);
+    return false;
   }
-  log("SUBMIT 7. submit disparado — olhe o Network pra request rdstation.com.br");
+  log("SUBMIT 7. submit concluído — confira Contatos no RD Station");
   return true;
 }
 
