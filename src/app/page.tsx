@@ -18,28 +18,54 @@ declare global {
 function useRDStationEmbed() {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const log = (...a: unknown[]) => console.log("[RD]", ...a);
+    log("1. useRDStationEmbed() iniciado");
     const ensureForm = () => {
       const container = document.getElementById(RD_FORM_ID);
-      if (!container || container.querySelector("form")) return;
+      if (!container) {
+        console.error("[RD] 2a. container #" + RD_FORM_ID + " NÃO encontrado no DOM");
+        return;
+      }
+      if (container.querySelector("form")) {
+        log("2b. form já existe no container, skip");
+        return;
+      }
       if (window.RDStationForms) {
-        new window.RDStationForms(RD_FORM_ID, "").createForm();
+        log("2c. chamando new RDStationForms('" + RD_FORM_ID + "', '').createForm()");
+        try {
+          new window.RDStationForms(RD_FORM_ID, "").createForm();
+          log("2d. createForm() executado — aguardando montagem do <form>");
+        } catch (err) {
+          console.error("[RD] 2e. createForm() throw:", err);
+        }
+      } else {
+        console.warn("[RD] 2f. window.RDStationForms ainda não existe");
       }
     };
     if (window.RDStationForms) {
+      log("3a. window.RDStationForms já disponível");
       ensureForm();
       return;
     }
-    if (document.getElementById("rdstation-forms-script")) return;
+    if (document.getElementById("rdstation-forms-script")) {
+      log("3b. script já injetado, aguardando onload");
+      return;
+    }
+    log("3c. injetando script rdstation-forms.min.js");
     const s = document.createElement("script");
     s.id = "rdstation-forms-script";
     s.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
     s.async = true;
     s.onload = () => {
+      log("4. script onload — window.RDStationForms?", !!window.RDStationForms);
       try {
         ensureForm();
       } catch (err) {
-        console.error("[RD] create form failed:", err);
+        console.error("[RD] 4b. ensureForm threw:", err);
       }
+    };
+    s.onerror = (ev) => {
+      console.error("[RD] 4c. SCRIPT BLOQUEADO / falhou ao carregar", ev);
     };
     document.head.appendChild(s);
   }, []);
@@ -50,20 +76,33 @@ async function submitViaRD(values: {
   phone?: string;
   name?: string;
 }): Promise<boolean> {
-  const deadline = Date.now() + 6000;
+  const log = (...a: unknown[]) => console.log("[RD]", ...a);
+  log("SUBMIT 1. submitViaRD chamado com:", values);
+  const start = Date.now();
+  const deadline = start + 6000;
   let rdForm: HTMLFormElement | null = null;
+  let pollCount = 0;
   while (Date.now() < deadline) {
+    pollCount++;
     const container = document.getElementById(RD_FORM_ID);
     rdForm = container?.querySelector("form") ?? null;
-    if (rdForm) break;
+    if (rdForm) {
+      log("SUBMIT 2. <form> encontrado após " + (Date.now() - start) + "ms (" + pollCount + " polls)");
+      break;
+    }
     await new Promise((r) => setTimeout(r, 120));
   }
   if (!rdForm) {
-    console.error("[RD] form embed não montou em 6s");
+    console.error("[RD] SUBMIT 2. ❌ form embed não montou em 6s (" + pollCount + " polls)");
     return false;
   }
-  const setNativeValue = (el: HTMLInputElement | null, val: string) => {
-    if (!el) return;
+  log("SUBMIT 3. HTML do form RD:", rdForm.outerHTML.slice(0, 500) + "…");
+  const setNativeValue = (el: HTMLInputElement | null, val: string, label: string) => {
+    if (!el) {
+      console.warn("[RD] SUBMIT 4. input " + label + " NÃO encontrado");
+      return;
+    }
+    log("SUBMIT 4. preenchendo " + label + "='" + val + "' (name=" + el.name + ")");
     const proto = Object.getPrototypeOf(el) as typeof HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
     setter?.call(el, val);
@@ -80,15 +119,24 @@ async function submitViaRD(values: {
   const nameInput = rdForm.querySelector<HTMLInputElement>(
     'input[name="nome"], input[name="name"], input[name="first_name"]',
   );
-  setNativeValue(emailInput, values.email);
-  if (values.phone) setNativeValue(phoneInput, values.phone);
-  if (values.name) setNativeValue(nameInput, values.name);
+  setNativeValue(emailInput, values.email, "email");
+  if (values.phone) setNativeValue(phoneInput, values.phone, "phone");
+  if (values.name) setNativeValue(nameInput, values.name, "name");
   const submitBtn = rdForm.querySelector<HTMLButtonElement>(
     'button[type="submit"], input[type="submit"]',
   );
-  if (submitBtn) submitBtn.click();
-  else if (typeof rdForm.requestSubmit === "function") rdForm.requestSubmit();
-  else rdForm.submit();
+  log("SUBMIT 5. botão submit encontrado?", !!submitBtn);
+  if (submitBtn) {
+    log("SUBMIT 6. clicando no botão submit");
+    submitBtn.click();
+  } else if (typeof rdForm.requestSubmit === "function") {
+    log("SUBMIT 6. requestSubmit()");
+    rdForm.requestSubmit();
+  } else {
+    log("SUBMIT 6. fallback form.submit()");
+    rdForm.submit();
+  }
+  log("SUBMIT 7. submit disparado — olhe o Network pra request rdstation.com.br");
   return true;
 }
 
@@ -164,7 +212,7 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
     }
     setTimeout(() => {
       window.location.href = "/obrigado";
-    }, 1600);
+    }, 2500);
   };
 
   const inputClass = "w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all text-sm";
