@@ -1,7 +1,96 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+
+/* ═══════════════════════════════════════════════════════════════════
+   RD STATION FORMS — embed oficial em container oculto
+   ═══════════════════════════════════════════════════════════════════ */
+
+const RD_FORM_ID = "forms-captura-leads-x-c92b969c120bb9b7290a";
+
+declare global {
+  interface Window {
+    RDStationForms?: new (id: string, token: string) => { createForm: () => void };
+  }
+}
+
+function useRDStationEmbed() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ensureForm = () => {
+      const container = document.getElementById(RD_FORM_ID);
+      if (!container || container.querySelector("form")) return;
+      if (window.RDStationForms) {
+        new window.RDStationForms(RD_FORM_ID, "").createForm();
+      }
+    };
+    if (window.RDStationForms) {
+      ensureForm();
+      return;
+    }
+    if (document.getElementById("rdstation-forms-script")) return;
+    const s = document.createElement("script");
+    s.id = "rdstation-forms-script";
+    s.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
+    s.async = true;
+    s.onload = () => {
+      try {
+        ensureForm();
+      } catch (err) {
+        console.error("[RD] create form failed:", err);
+      }
+    };
+    document.head.appendChild(s);
+  }, []);
+}
+
+async function submitViaRD(values: {
+  email: string;
+  phone?: string;
+  name?: string;
+}): Promise<boolean> {
+  const deadline = Date.now() + 6000;
+  let rdForm: HTMLFormElement | null = null;
+  while (Date.now() < deadline) {
+    const container = document.getElementById(RD_FORM_ID);
+    rdForm = container?.querySelector("form") ?? null;
+    if (rdForm) break;
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  if (!rdForm) {
+    console.error("[RD] form embed não montou em 6s");
+    return false;
+  }
+  const setNativeValue = (el: HTMLInputElement | null, val: string) => {
+    if (!el) return;
+    const proto = Object.getPrototypeOf(el) as typeof HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    setter?.call(el, val);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("blur", { bubbles: true }));
+  };
+  const emailInput = rdForm.querySelector<HTMLInputElement>(
+    'input[name="email"], input[type="email"]',
+  );
+  const phoneInput = rdForm.querySelector<HTMLInputElement>(
+    'input[name="celular"], input[name="mobile_phone"], input[name="whatsapp"], input[name="telefone"], input[type="tel"]',
+  );
+  const nameInput = rdForm.querySelector<HTMLInputElement>(
+    'input[name="nome"], input[name="name"], input[name="first_name"]',
+  );
+  setNativeValue(emailInput, values.email);
+  if (values.phone) setNativeValue(phoneInput, values.phone);
+  if (values.name) setNativeValue(nameInput, values.name);
+  const submitBtn = rdForm.querySelector<HTMLButtonElement>(
+    'button[type="submit"], input[type="submit"]',
+  );
+  if (submitBtn) submitBtn.click();
+  else if (typeof rdForm.requestSubmit === "function") rdForm.requestSubmit();
+  else rdForm.submit();
+  return true;
+}
 
 const DAYS = [
   {
@@ -58,44 +147,19 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setStatus("loading");
-
-    const hiddenForm = document.createElement("form");
-    hiddenForm.method = "POST";
-    hiddenForm.action = "https://app.rdstation.com.br/api/1.2/conversions";
-    hiddenForm.target = "rd-iframe-v2";
-    hiddenForm.style.display = "none";
-
-    const fields: Record<string, string> = {
-      token_rdstation: "null",
-      identificador: "forms-captura-leads-x-c92b969c120bb9b7290a",
-      nome: name,
-      email: email,
-      celular: "",
-      c_utmz: "",
-      traffic_source: document.referrer || "",
-    };
-
-    Object.entries(fields).forEach(([key, value]) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = value;
-      hiddenForm.appendChild(input);
-    });
-
-    document.body.appendChild(hiddenForm);
-    hiddenForm.submit();
-    document.body.removeChild(hiddenForm);
-
+    const ok = await submitViaRD({ email, name });
+    if (!ok) {
+      setStatus("error");
+      return;
+    }
     setTimeout(() => {
       window.location.href = "/obrigado";
-    }, 800);
+    }, 1600);
   };
 
   const inputClass =
@@ -106,7 +170,6 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
   if (variant === "compact") {
     return (
       <>
-        <iframe name="rd-iframe-v2" ref={iframeRef} className="hidden" />
         <form onSubmit={handleSubmit} className="flex gap-3 max-w-lg mx-auto flex-wrap sm:flex-nowrap">
           <input
             type="email"
@@ -131,7 +194,6 @@ function EmailForm({ variant = "default" }: { variant?: "default" | "compact" })
 
   return (
     <>
-      <iframe name="rd-iframe-v2" ref={iframeRef} className="hidden" />
       <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className={inputClass} />
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu melhor e-mail" required disabled={status === "loading"} className={inputClass + " disabled:opacity-50"} />
@@ -173,8 +235,24 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function V2() {
+  useRDStationEmbed();
   return (
     <main>
+      {/* RD Station — form oficial renderizado fora da tela. */}
+      <div
+        id={RD_FORM_ID}
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "-9999px",
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
       {/* NAV */}
       <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[var(--background)]/70 border-b border-[var(--border)]/50">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
