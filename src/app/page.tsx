@@ -159,7 +159,7 @@ export default function Home() {
           {/* Form + Alfred side by side */}
           <div className="flex flex-col md:flex-row md:items-end gap-6 animate-fade-up animate-delay-3">
             <div className="flex-1 max-w-sm">
-              <RDForm className="rd-form-styled" />
+              <RDForm />
             </div>
             <div className="hidden md:block shrink-0">
               <div className="relative animate-float">
