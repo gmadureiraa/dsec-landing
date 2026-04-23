@@ -1,159 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
-
-/* ═══════════════════════════════════════════════════════════════════
-   RD STATION FORMS — embed oficial + disparo via submit nativo
-   A lib oficial renderiza o <form> real em #RD_FORM_ID (fora da viewport).
-   Ao submeter o form custom preenchemos os inputs e disparamos submit
-   nativo — a lib intercepta e envia pro endpoint oficial com token.
-   (Antes fazíamos POST manual pro action, no endpoint errado: leads não
-   chegavam ao RD.)
-   ═══════════════════════════════════════════════════════════════════ */
-
-const RD_FORM_ID = "forms-captura-leads-x-c92b969c120bb9b7290a";
-const RD_SCRIPT_SRC = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
-const RD_SCRIPT_ID = "rdstation-forms-script";
-
-declare global {
-  interface Window {
-    RDStationForms?: new (id: string, token: string) => { createForm: () => void };
-  }
-}
-
-function useRDStationEmbed() {
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const log = (...a: unknown[]) => console.log("[RD]", ...a);
-    const ensureForm = () => {
-      const container = document.getElementById(RD_FORM_ID);
-      if (!container) {
-        console.error("[RD] container #" + RD_FORM_ID + " NÃO encontrado");
-        return;
-      }
-      if (container.querySelector("form")) {
-        log("form já montado, skip");
-        return;
-      }
-      if (!window.RDStationForms) {
-        console.warn("[RD] window.RDStationForms ainda não disponível");
-        return;
-      }
-      try {
-        new window.RDStationForms(RD_FORM_ID, "").createForm();
-        log("createForm() executado");
-      } catch (err) {
-        console.error("[RD] createForm() throw:", err);
-      }
-    };
-    if (window.RDStationForms) {
-      ensureForm();
-      return;
-    }
-    if (document.getElementById(RD_SCRIPT_ID)) return;
-    const s = document.createElement("script");
-    s.id = RD_SCRIPT_ID;
-    s.src = RD_SCRIPT_SRC;
-    s.async = true;
-    s.onload = () => {
-      log("script carregado, RDStationForms?", !!window.RDStationForms);
-      ensureForm();
-    };
-    s.onerror = (ev) => {
-      console.error("[RD] SCRIPT falhou ao carregar", ev);
-    };
-    document.head.appendChild(s);
-  }, []);
-}
-
-async function waitForRdForm(timeoutMs = 10_000): Promise<HTMLFormElement | null> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const container = document.getElementById(RD_FORM_ID);
-    const form = container?.querySelector<HTMLFormElement>("form");
-    if (form && form.querySelector('input[name="email"]') && form.querySelector('input[name="token_rdstation"]')) {
-      return form;
-    }
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  return null;
-}
-
-function setInputValue(form: HTMLFormElement, selectors: string[], value: string): boolean {
-  for (const sel of selectors) {
-    const el = form.querySelector<HTMLInputElement>(sel);
-    if (el) {
-      const proto = Object.getPrototypeOf(el) as typeof HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-      setter?.call(el, value);
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-      el.dispatchEvent(new Event("blur", { bubbles: true }));
-      return true;
-    }
-  }
-  return false;
-}
-
-async function submitViaRD(values: {
-  email: string;
-  phone?: string;
-  name?: string;
-}): Promise<boolean> {
-  const log = (...a: unknown[]) => console.log("[RD]", ...a);
-  log("submit iniciado", values);
-
-  const rdForm = await waitForRdForm();
-  if (!rdForm) {
-    console.error("[RD] form embed não montou em 10s.");
-    return false;
-  }
-
-  log("form encontrado, action=", rdForm.action);
-
-  setInputValue(rdForm, ['input[name="email"]', 'input[type="email"]'], values.email);
-  if (values.phone) {
-    setInputValue(
-      rdForm,
-      [
-        'input[name="mobile_phone"]',
-        'input[name="celular"]',
-        'input[name="whatsapp"]',
-        'input[name="telefone"]',
-        'input[name="phone"]',
-        'input[type="tel"]',
-      ],
-      values.phone,
-    );
-  }
-  if (values.name) {
-    setInputValue(
-      rdForm,
-      ['input[name="name"]', 'input[name="nome"]', 'input[name="first_name"]'],
-      values.name,
-    );
-  }
-
-  const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
-  const dispatched = rdForm.dispatchEvent(submitEvent);
-  log("submit dispatched — handled?", !dispatched);
-
-  if (dispatched) {
-    const submitBtn = rdForm.querySelector<HTMLButtonElement | HTMLInputElement>(
-      'button[type="submit"], input[type="submit"]',
-    );
-    if (submitBtn) {
-      log("fallback: click no botão de submit do form RD");
-      submitBtn.click();
-    } else {
-      console.warn("[RD] submit não interceptado e sem botão fallback");
-      return false;
-    }
-  }
-
-  return true;
-}
+import { RDForm } from "@/components/rd-form";
 
 const DAYS = [
   {
@@ -211,98 +60,6 @@ const FAQS = [
   },
 ];
 
-function EmailForm({ variant = "default" }: { variant?: "default" | "compact" }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setStatus("loading");
-    const ok = await submitViaRD({ email, name });
-    if (!ok) {
-      setStatus("error");
-      return;
-    }
-    setTimeout(() => {
-      window.location.href = "/obrigado";
-    }, 2500);
-  };
-
-  const inputClass = "w-full px-4 py-3.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all text-sm";
-  const buttonClass = "w-full py-3.5 bg-[var(--orange)] text-[var(--background)] font-bold rounded-lg hover:brightness-110 hover:shadow-[0_0_20px_rgba(246,145,27,0.3)] transition-all relative overflow-hidden group";
-
-  if (variant === "compact") {
-    return (
-      <>
-        <form onSubmit={handleSubmit} className="flex gap-3 max-w-lg mx-auto flex-wrap sm:flex-nowrap">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Seu melhor e-mail"
-            required
-            disabled={status === "loading"}
-            className="flex-1 min-w-[200px] px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--orange)] focus:ring-1 focus:ring-[var(--orange)]/20 transition-all disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="px-6 py-3 bg-[var(--orange)] text-[var(--background)] font-semibold text-sm rounded-lg hover:brightness-110 transition-all shrink-0 disabled:opacity-70"
-          >
-            {status === "loading" ? "Enviando..." : "Proteger meus Bitcoin"}
-          </button>
-        </form>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Seu nome"
-          className={inputClass}
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Seu melhor e-mail"
-          required
-          disabled={status === "loading"}
-          className={inputClass + " disabled:opacity-50"}
-        />
-        <button type="submit" disabled={status === "loading"} className={buttonClass + " disabled:opacity-70"}>
-          <span className="relative z-10 flex items-center justify-center gap-2">
-            {status === "loading" ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
-                </svg>
-                Garantindo sua vaga...
-              </>
-            ) : (
-              "Ver o que estão escondendo de mim"
-            )}
-          </span>
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-        </button>
-        {status === "error" && (
-          <p className="text-xs text-red-400 text-center">Erro ao enviar. Tente novamente.</p>
-        )}
-        <p className="text-xs text-[var(--muted)] text-center">
-          1 email por dia, durante 5 dias. Sem spam. Sem pegadinha. Sem pedir CPF.
-        </p>
-      </form>
-    </>
-  );
-}
-
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -332,24 +89,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function Home() {
-  useRDStationEmbed();
   return (
     <main>
-      {/* RD Station — form oficial fora da viewport (precisa ter tamanho
-          real pra lib validar; opacity:0 e visibility:hidden podem
-          atrapalhar a validação jQuery). */}
-      <div
-        id={RD_FORM_ID}
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: "-9999px",
-          width: 600,
-          height: 600,
-          overflow: "hidden",
-        }}
-      />
       {/* NAV */}
       <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[var(--background)]/70 border-b border-[var(--border)]/50">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -369,7 +110,6 @@ export default function Home() {
       <section className="min-h-screen flex items-center pt-14 relative overflow-hidden" id="start">
         {/* Deep space background with rotating galaxy */}
         <div className="absolute inset-0 z-0" aria-hidden="true">
-          {/* Layer 1 — slow rotating star field (galaxy feel) */}
           <div className="absolute inset-[-20%] animate-star-drift" style={{
             backgroundImage: `radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.2) 50%, transparent 50%),
               radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,0.15) 50%, transparent 50%),
@@ -389,7 +129,6 @@ export default function Home() {
               radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.1) 50%, transparent 50%),
               radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.18) 50%, transparent 50%)`
           }} />
-          {/* Layer 2 — counter-rotating brighter stars */}
           <div className="absolute inset-[-10%] animate-star-drift-reverse animate-twinkle" style={{
             backgroundImage: `radial-gradient(1.5px 1.5px at 12% 25%, rgba(255,255,255,0.3) 50%, transparent 50%),
               radial-gradient(1.5px 1.5px at 38% 15%, rgba(255,255,255,0.25) 50%, transparent 50%),
@@ -400,11 +139,9 @@ export default function Home() {
               radial-gradient(2px 2px at 18% 50%, rgba(246,145,27,0.2) 50%, transparent 50%),
               radial-gradient(2px 2px at 82% 75%, rgba(246,145,27,0.15) 50%, transparent 50%)`
           }} />
-          {/* Static nebula glows */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_10%_40%,rgba(246,145,27,0.06)_0%,transparent_55%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_25%,rgba(246,145,27,0.03)_0%,transparent_50%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_80%,rgba(168,21,128,0.02)_0%,transparent_50%)]" />
-          {/* Bottom fade */}
           <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--background)] to-transparent" />
         </div>
         <div className="max-w-5xl mx-auto px-6 py-24 md:py-32 relative z-10">
@@ -422,7 +159,7 @@ export default function Home() {
           {/* Form + Alfred side by side */}
           <div className="flex flex-col md:flex-row md:items-end gap-6 animate-fade-up animate-delay-3">
             <div className="flex-1 max-w-sm">
-              <EmailForm />
+              <RDForm className="rd-form-styled" />
             </div>
             <div className="hidden md:block shrink-0">
               <div className="relative animate-float">
@@ -534,7 +271,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Carousel */}
         <div className="relative">
           <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 px-6 md:px-[calc((100vw-64rem)/2+1.5rem)] no-scrollbar">
             {DAYS.map((day) => (
@@ -542,7 +278,6 @@ export default function Home() {
                 key={day.num}
                 className="group snap-start shrink-0 w-[300px] md:w-[340px] rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden hover:border-[var(--orange)]/40 transition-all"
               >
-                {/* Card image */}
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <Image
                     src={day.img}
@@ -558,7 +293,6 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Card content */}
                 <div className="p-5">
                   <h3 className="text-[15px] font-semibold leading-snug mb-2">
                     {day.title}
@@ -631,7 +365,12 @@ export default function Home() {
             <p className="text-[15px] text-[var(--muted)] leading-relaxed mb-10 max-w-lg mx-auto">
               Este curso existe porque a DSEC Labs fabrica hardware de segurança Bitcoin. Quanto mais gente entender self-custody, mais gente precisa de cofres bons. <strong className="text-[var(--foreground)]">A educação é o marketing.</strong>
             </p>
-            <EmailForm variant="compact" />
+            <a
+              href="#start"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--orange)] text-[var(--background)] font-semibold rounded-lg hover:brightness-110 hover:shadow-[0_0_24px_rgba(246,145,27,0.25)] transition-all"
+            >
+              Proteger meus Bitcoin
+            </a>
           </div>
         </div>
       </section>
