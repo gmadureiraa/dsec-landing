@@ -4,10 +4,17 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 
 /* ═══════════════════════════════════════════════════════════════════
-   RD STATION FORMS — embed oficial em container oculto
+   RD STATION FORMS — embed oficial + disparo via submit nativo
+   A lib oficial renderiza o <form> real em #RD_FORM_ID (fora da viewport).
+   Ao submeter o form custom preenchemos os inputs e disparamos submit
+   nativo — a lib intercepta e envia pro endpoint oficial com token.
+   (Antes fazíamos POST manual pro action, no endpoint errado: leads não
+   chegavam ao RD.)
    ═══════════════════════════════════════════════════════════════════ */
 
 const RD_FORM_ID = "forms-captura-leads-x-c92b969c120bb9b7290a";
+const RD_SCRIPT_SRC = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
+const RD_SCRIPT_ID = "rdstation-forms-script";
 
 declare global {
   interface Window {
@@ -19,56 +26,74 @@ function useRDStationEmbed() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const log = (...a: unknown[]) => console.log("[RD]", ...a);
-    log("1. useRDStationEmbed() iniciado");
     const ensureForm = () => {
       const container = document.getElementById(RD_FORM_ID);
       if (!container) {
-        console.error("[RD] 2a. container #" + RD_FORM_ID + " NÃO encontrado no DOM");
+        console.error("[RD] container #" + RD_FORM_ID + " NÃO encontrado");
         return;
       }
       if (container.querySelector("form")) {
-        log("2b. form já existe no container, skip");
+        log("form já montado, skip");
         return;
       }
-      if (window.RDStationForms) {
-        log("2c. chamando new RDStationForms('" + RD_FORM_ID + "', '').createForm()");
-        try {
-          new window.RDStationForms(RD_FORM_ID, "").createForm();
-          log("2d. createForm() executado — aguardando montagem do <form>");
-        } catch (err) {
-          console.error("[RD] 2e. createForm() throw:", err);
-        }
-      } else {
-        console.warn("[RD] 2f. window.RDStationForms ainda não existe");
+      if (!window.RDStationForms) {
+        console.warn("[RD] window.RDStationForms ainda não disponível");
+        return;
+      }
+      try {
+        new window.RDStationForms(RD_FORM_ID, "").createForm();
+        log("createForm() executado");
+      } catch (err) {
+        console.error("[RD] createForm() throw:", err);
       }
     };
     if (window.RDStationForms) {
-      log("3a. window.RDStationForms já disponível");
       ensureForm();
       return;
     }
-    if (document.getElementById("rdstation-forms-script")) {
-      log("3b. script já injetado, aguardando onload");
-      return;
-    }
-    log("3c. injetando script rdstation-forms.min.js");
+    if (document.getElementById(RD_SCRIPT_ID)) return;
     const s = document.createElement("script");
-    s.id = "rdstation-forms-script";
-    s.src = "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
+    s.id = RD_SCRIPT_ID;
+    s.src = RD_SCRIPT_SRC;
     s.async = true;
     s.onload = () => {
-      log("4. script onload — window.RDStationForms?", !!window.RDStationForms);
-      try {
-        ensureForm();
-      } catch (err) {
-        console.error("[RD] 4b. ensureForm threw:", err);
-      }
+      log("script carregado, RDStationForms?", !!window.RDStationForms);
+      ensureForm();
     };
     s.onerror = (ev) => {
-      console.error("[RD] 4c. SCRIPT BLOQUEADO / falhou ao carregar", ev);
+      console.error("[RD] SCRIPT falhou ao carregar", ev);
     };
     document.head.appendChild(s);
   }, []);
+}
+
+async function waitForRdForm(timeoutMs = 10_000): Promise<HTMLFormElement | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const container = document.getElementById(RD_FORM_ID);
+    const form = container?.querySelector<HTMLFormElement>("form");
+    if (form && form.querySelector('input[name="email"]') && form.querySelector('input[name="token_rdstation"]')) {
+      return form;
+    }
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  return null;
+}
+
+function setInputValue(form: HTMLFormElement, selectors: string[], value: string): boolean {
+  for (const sel of selectors) {
+    const el = form.querySelector<HTMLInputElement>(sel);
+    if (el) {
+      const proto = Object.getPrototypeOf(el) as typeof HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      setter?.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new Event("blur", { bubbles: true }));
+      return true;
+    }
+  }
+  return false;
 }
 
 async function submitViaRD(values: {
@@ -77,78 +102,56 @@ async function submitViaRD(values: {
   name?: string;
 }): Promise<boolean> {
   const log = (...a: unknown[]) => console.log("[RD]", ...a);
-  log("SUBMIT 1. submitViaRD chamado com:", values);
-  const start = Date.now();
-  const deadline = start + 6000;
-  let rdForm: HTMLFormElement | null = null;
-  let pollCount = 0;
-  while (Date.now() < deadline) {
-    pollCount++;
-    const container = document.getElementById(RD_FORM_ID);
-    rdForm = container?.querySelector("form") ?? null;
-    if (rdForm) {
-      log("SUBMIT 2. <form> encontrado após " + (Date.now() - start) + "ms (" + pollCount + " polls)");
-      break;
-    }
-    await new Promise((r) => setTimeout(r, 120));
-  }
+  log("submit iniciado", values);
+
+  const rdForm = await waitForRdForm();
   if (!rdForm) {
-    console.error("[RD] SUBMIT 2. ❌ form embed não montou em 6s (" + pollCount + " polls)");
+    console.error("[RD] form embed não montou em 10s.");
     return false;
   }
-  log("SUBMIT 3. HTML do form RD:", rdForm.outerHTML.slice(0, 500) + "…");
-  const setNativeValue = (el: HTMLInputElement | null, val: string, label: string) => {
-    if (!el) {
-      console.warn("[RD] SUBMIT 4. input " + label + " NÃO encontrado");
-      return;
+
+  log("form encontrado, action=", rdForm.action);
+
+  setInputValue(rdForm, ['input[name="email"]', 'input[type="email"]'], values.email);
+  if (values.phone) {
+    setInputValue(
+      rdForm,
+      [
+        'input[name="mobile_phone"]',
+        'input[name="celular"]',
+        'input[name="whatsapp"]',
+        'input[name="telefone"]',
+        'input[name="phone"]',
+        'input[type="tel"]',
+      ],
+      values.phone,
+    );
+  }
+  if (values.name) {
+    setInputValue(
+      rdForm,
+      ['input[name="name"]', 'input[name="nome"]', 'input[name="first_name"]'],
+      values.name,
+    );
+  }
+
+  const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+  const dispatched = rdForm.dispatchEvent(submitEvent);
+  log("submit dispatched — handled?", !dispatched);
+
+  if (dispatched) {
+    const submitBtn = rdForm.querySelector<HTMLButtonElement | HTMLInputElement>(
+      'button[type="submit"], input[type="submit"]',
+    );
+    if (submitBtn) {
+      log("fallback: click no botão de submit do form RD");
+      submitBtn.click();
+    } else {
+      console.warn("[RD] submit não interceptado e sem botão fallback");
+      return false;
     }
-    log("SUBMIT 4. preenchendo " + label + "='" + val + "' (name=" + el.name + ")");
-    const proto = Object.getPrototypeOf(el) as typeof HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-    setter?.call(el, val);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.dispatchEvent(new Event("blur", { bubbles: true }));
-  };
-  const emailInput = rdForm.querySelector<HTMLInputElement>(
-    'input[name="email"], input[type="email"]',
-  );
-  const phoneInput = rdForm.querySelector<HTMLInputElement>(
-    'input[name="celular"], input[name="mobile_phone"], input[name="whatsapp"], input[name="telefone"], input[type="tel"]',
-  );
-  const nameInput = rdForm.querySelector<HTMLInputElement>(
-    'input[name="nome"], input[name="name"], input[name="first_name"]',
-  );
-  setNativeValue(emailInput, values.email, "email");
-  if (values.phone) setNativeValue(phoneInput, values.phone, "phone");
-  if (values.name) setNativeValue(nameInput, values.name, "name");
-
-  const action = rdForm.action || "https://cta-redirect.rdstation.com/v2/conversions";
-  const formData = new FormData(rdForm);
-  formData.set("email", values.email);
-  if (values.phone) formData.set("mobile_phone", values.phone);
-  if (values.name) formData.set("name", values.name);
-
-  log(
-    "SUBMIT 5. disparando fetch POST pro RD em:",
-    action,
-    "campos:",
-    Array.from(formData.keys()),
-  );
-  try {
-    const resp = await fetch(action, {
-      method: "POST",
-      body: formData,
-      mode: "no-cors",
-      credentials: "omit",
-      keepalive: true,
-    });
-    log("SUBMIT 6. fetch OK — status:", resp.status, "type:", resp.type);
-  } catch (err) {
-    console.error("[RD] SUBMIT 6. ❌ fetch throw:", err);
-    return false;
   }
-  log("SUBMIT 7. submit concluído — confira Contatos no RD Station");
+
   return true;
 }
 
@@ -332,7 +335,9 @@ export default function Home() {
   useRDStationEmbed();
   return (
     <main>
-      {/* RD Station — form oficial renderizado fora da tela. */}
+      {/* RD Station — form oficial fora da viewport (precisa ter tamanho
+          real pra lib validar; opacity:0 e visibility:hidden podem
+          atrapalhar a validação jQuery). */}
       <div
         id={RD_FORM_ID}
         aria-hidden="true"
@@ -340,11 +345,9 @@ export default function Home() {
           position: "absolute",
           left: "-9999px",
           top: "-9999px",
-          width: 1,
-          height: 1,
+          width: 600,
+          height: 600,
           overflow: "hidden",
-          opacity: 0,
-          pointerEvents: "none",
         }}
       />
       {/* NAV */}
