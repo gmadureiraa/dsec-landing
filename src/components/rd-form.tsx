@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
    Redirect para /obrigado é controlado pelo nosso código, não pelo RD.
    ═══════════════════════════════════════════════════════════════════ */
 
-const RD_FORM_ID = "forms-captura-leads-x-c92b969c120bb9b7290a";
+const RD_FORM_ID = "forms-curso-gratis-9520162929ac4a559ebb";
 const RD_SCRIPT_SRC =
   "https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js";
 const RD_SCRIPT_ID = "rdstation-forms-script";
