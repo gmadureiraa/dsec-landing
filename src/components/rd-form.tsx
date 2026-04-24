@@ -143,25 +143,72 @@ export function RDForm({ className }: { className?: string }) {
 
     setSubmitState({ status: "submitting" });
 
+    // Mesma estratégia do dsec-nova-landing (24/04):
+    // Delegamos o submit pra lib RD (hidden form) — ela faz o pipeline
+    // dela e registra a conversão no form correto. Fallback pro POST
+    // manual se a lib não carregou.
+
+    const nome = formData.nome.trim();
+    const telefone = formData.telefone.trim();
+
     try {
-      // O RD cria contato só se token_rdstation + email forem válidos,
-      // mas só registra CONVERSÃO no form se `identificador` bater com
-      // um form configurado no painel. O `identificador` correto vem no
-      // hidden form que a lib RD injeta. Se não extrair, cai no embed ID.
+      const hiddenForm =
+        hiddenContainerRef.current?.querySelector<HTMLFormElement>("form");
+
+      if (hiddenForm) {
+        console.log("[RD] submit nativo via lib — populando hidden form");
+
+        const fillField = (name: string, value: string) => {
+          if (!value) return;
+          const input = hiddenForm.querySelector<HTMLInputElement>(
+            `input[name="${name}"], input[id*="${name}"]`,
+          );
+          if (input) {
+            const setter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value",
+            )?.set;
+            setter?.call(input, value);
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+          } else {
+            console.warn(`[RD] input[name="${name}"] não encontrado no hidden form`);
+          }
+        };
+
+        fillField("email", email);
+        fillField("nome", nome);
+        fillField("name", nome);
+        fillField("telefone", telefone);
+        fillField("phone", telefone);
+
+        await new Promise((r) => setTimeout(r, 100));
+        hiddenForm.requestSubmit
+          ? hiddenForm.requestSubmit()
+          : hiddenForm.dispatchEvent(
+              new Event("submit", { bubbles: true, cancelable: true }),
+            );
+
+        await new Promise((r) => setTimeout(r, 1200));
+        setSubmitState({ status: "success" });
+        setTimeout(() => {
+          window.location.href = REDIRECT_AFTER_SUCCESS;
+        }, 600);
+        return;
+      }
+
+      console.warn("[RD] hidden form ausente — fallback pro POST manual");
       const body: Record<string, string> = {
         token_rdstation: rdToken,
         identificador: rdIdentificador ?? RD_FORM_ID,
         email,
       };
-      const nome = formData.nome.trim();
-      const telefone = formData.telefone.trim();
       if (nome) body.nome = nome;
       if (telefone) body.telefone = telefone;
       if (typeof window !== "undefined") {
         body.traffic_source = window.location.href;
       }
 
-      console.log("[RD] POST body", body);
       const res = await fetch(RD_ENDPOINT, {
         method: "POST",
         headers: {
@@ -186,7 +233,7 @@ export function RDForm({ className }: { className?: string }) {
         window.location.href = REDIRECT_AFTER_SUCCESS;
       }, 600);
     } catch (err) {
-      console.error("[RD] POST error", err);
+      console.error("[RD] submit error", err);
       setSubmitState({
         status: "error",
         message: "Erro de conexão. Tente novamente.",
